@@ -8,6 +8,7 @@
 
 import groovy.transform.*
 import groovy.sql.Sql
+import static Helper.*
 
 /**
  * control script
@@ -32,24 +33,45 @@ where ZARTICLECONTENT.ZARTICLE = ZARTICLE.Z_PK and
 ZARTICLE.ZFLAGGED = 1
 """
 
+// extract
 List<Album> albums = []
 Sql.newInstance("jdbc:sqlite:${new File(opt.f).absolutePath}", "org.sqlite.JDBC").eachRow(qry) { r ->
     // TODO urls
     albums << new Album(
         artist: xtract(r, /Artist:/),
         title: xtract(r, /Album:/),
-        style: xtract(r, /Style:/)
+        style: xtract(r, /Style:/),
+        urls: xtractLinks(r)
     )
-    println r
-    // (DONWLOAD LINKS .. FLAC) each s/href="([^"]*)"/\1/
 }
 
 // ...
+albums.each {
+    println it
+}
 
 // ----------- lib and helper -----------
 
-String xtract(from, regex) {
-    from.toString().split(/\n/).find{ it =~ regex }.replaceAll(/<[^>]*>/, '').replace(regex, '').trim()
+class Helper {
+    static String[] lines(from) { from.toString().split(/\n/) }
+
+    static String xtract(from, regex) {
+        lines(from).find{ it =~ regex }.replaceAll(/<[^>]*>/, '').replace(regex, '').trim()
+    }
+
+    static List<String> xtractLinks(from) {
+        boolean b = false
+        List l = []
+        lines(from).each { line ->
+            if (line =~ /DOWNLOAD LINKS/) b = true
+            if (b && line =~ /FLAC/) b = false
+            if (b) {
+                def m = (line =~ /.*a href="([^"]*)".*/)
+                if (m) l << m.group(1)
+            }
+        }
+        l
+    }
 }
 
 @ToString
