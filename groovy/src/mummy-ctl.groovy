@@ -35,8 +35,7 @@ ZARTICLE.ZFLAGGED = 1
 
 // extract
 List<Album> albums = []
-Sql.newInstance("jdbc:sqlite:${new File(opt.f).absolutePath}", "org.sqlite.JDBC").eachRow(qry) { r ->
-    // TODO urls
+Sql.newInstance("jdbc:sqlite:${new File(opt.f as String).absolutePath}", "org.sqlite.JDBC").eachRow(qry) { r ->
     albums << new Album(
         artist: xtract(r, /Artist:/),
         title: xtract(r, /Album:/),
@@ -56,10 +55,10 @@ class Helper {
     static String[] lines(from) { from.toString().split(/\n/) }
 
     static String xtract(from, regex) {
-        lines(from).find{ it =~ regex }.replaceAll(/<[^>]*>/, '').replace(regex, '').trim()
+        lines(from).find{ it =~ regex }.replaceAll(/<[^>]*>/, '').replace(regex as CharSequence, '').trim()
     }
 
-    static List<String> xtractLinks(from) {
+    static List<URL> xtractLinks(from) {
         boolean b = false
         List l = []
         lines(from).each { line ->
@@ -67,7 +66,7 @@ class Helper {
             if (b && line =~ /FLAC/) b = false
             if (b) {
                 def m = (line =~ /.*a href="([^"]*)".*/)
-                if (m) l << m.group(1)
+                if (m) l << new URL(m.group(1))
             }
         }
         l
