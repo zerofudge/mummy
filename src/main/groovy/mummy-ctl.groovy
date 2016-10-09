@@ -1,10 +1,4 @@
 #!/usr/bin/env groovy
-@Grapes([
-    @Grab(group='org.xerial', module='sqlite-jdbc', version='3.8.11.2'),
-    @Grab(group='org.xerial.thirdparty', module='nestedvm', version='1.0'),
-    @GrabExclude('xml-apis:xml-apis'),
-    @GrabConfig(systemClassLoader=true, initContextClassLoader=true)
-])
 
 import groovy.transform.*
 import groovy.sql.Sql
@@ -28,14 +22,16 @@ if (!opt) return -1
 
 // read database
 def qry = """
-select ZHTMLTEXT from ZARTICLECONTENT, ZARTICLE
-where ZARTICLECONTENT.ZARTICLE = ZARTICLE.Z_PK and
-ZARTICLE.ZFLAGGED = 1
+    select ZHTMLTEXT from ZARTICLECONTENT, ZARTICLE
+    where ZARTICLECONTENT.ZARTICLE = ZARTICLE.Z_PK and
+    ZARTICLE.ZFLAGGED = 1
 """
 
 // extract
 List<Album> albums = []
-Sql.newInstance("jdbc:sqlite:${new File(opt.f as String).absolutePath}", "org.sqlite.JDBC").eachRow(qry) { r ->
+Sql sql = Sql.newInstance("jdbc:sqlite:${new File(opt.f as String).absolutePath}", "org.sqlite.JDBC")
+sql.eachRow(qry) { r ->
+    print '.'
     albums << new Album(
         artist: xtract(r, /Artist:/),
         title: xtract(r, /Album:/),
@@ -44,10 +40,17 @@ Sql.newInstance("jdbc:sqlite:${new File(opt.f as String).absolutePath}", "org.sq
     )
 }
 
-// ...
 albums.each {
-    println it
+    println "${it.artist} - ${it.title} - ${it.urls.last()}"
+
+    // torrent search
+
+    // fallback: try if the urls yield something
+
+    // if we got it, update ZFLAGGED
 }
+
+sql.close()
 
 // ----------- lib and helper -----------
 
@@ -60,16 +63,16 @@ class Helper {
 
     static List<URL> xtractLinks(from) {
         boolean b = false
-        List l = []
+        List rtrn = []
         lines(from).each { line ->
             if (line =~ /DOWNLOAD LINKS/) b = true
             if (b && line =~ /FLAC/) b = false
             if (b) {
                 def m = (line =~ /.*a href="([^"]*)".*/)
-                if (m) l << new URL(m.group(1))
+                if (m) rtrn << new URL(m.group(1))
             }
         }
-        l
+        rtrn
     }
 }
 
